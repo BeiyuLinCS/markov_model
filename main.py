@@ -17,10 +17,6 @@ from mc_class import MarkovModel
 from gen_mc_transition import GenMarkovTransitionProb
 from gen_syn_mc import GenMarkovChainSample
 
-# https://www.datasciencecentral.com/profiles/blogs/some-applications-of-markov-chain-in-python
-
-# input_sequence = ['abc', 'abc', 'acd', 'ecs', 'adf', 'dafae', 'dafae', 'dafae', 'adf', 'abc', 'dafae', 'dafae', 'dafae', 'adf', 'abc']
-
 def make_dir(path):
 	try:
 		os.stat(path)
@@ -74,7 +70,6 @@ if __name__ == '__main__':
 	syn2 = True
 	syn3 = False
 	sample_size_syn1 = 10000
-	cases = range(0, 7)
 	root_dir = "/Users/BeiyuLin/Desktop/five_datasets/"
 
 	# calculate the order of each subgroup from smart home datasets
