@@ -104,18 +104,5 @@ class GenMarkovTransitionProb:
 			activity_list += c
 		return activity_list
 		
-	# def rand(self, kgram):
-	# 	Z = sum([self.tran[(kgram, alph)] for alph in self.alph])
-
-	# 	return np.random.choice(self.alph, 1, p=np.array([float(self.tran[(kgram, alph)])/self.kgrams[kgram] for alph in self.alph]))
-		
-	# def gen(self, kgram, T):
-	# 	# generate a list of length T activities
-	# 	activity_list = []
-	# 	for _ in range(T):
-	# 		c =  self.rand(kgram)[0]  			
-	# 		kgram = kgram[1:] + (c,)
-	# 		activity_list += c
-	# 	return activity_list
 
 
