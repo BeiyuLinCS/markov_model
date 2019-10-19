@@ -13,9 +13,12 @@ import os
 import glob
 import re
 import numpy
+import sys
 from mc_class import MarkovModel
 from gen_mc_transition import GenMarkovTransitionProb
-from gen_syn_mc import GenMarkovChainSample
+
+# https://www.datasciencecentral.com/profiles/blogs/some-applications-of-markov-chain-in-python
+# input_sequence = ['abc', 'abc', 'acd', 'ecs', 'adf', 'dafae', 'dafae', 'dafae', 'adf', 'abc', 'dafae', 'dafae', 'dafae', 'adf', 'abc']
 
 def make_dir(path):
 	try:
@@ -39,28 +42,37 @@ def gen_syn1(sample_size):
 	res = [str(x) for x in digitized]
 	return res
 
+def percentage_order_category(selected_order, order_i, percentage_order):
 
-def calculate_measure_values(readin_data, fout_file_path):
-	header = ["order", "aic", "bic", "hqic", "edc", "new1", "new2", "new3"]
-	order_measure = defaultdict(float)
+	for measure in selected_order.keys():
+		# print("measure", measure)
+		if selected_order[measure] < order_i:
+			percentage_order[measure]["under_estimate"] =  percentage_order.get(measure, 0).get("under_estimate", 0) + 1
+		elif selected_order[measure] == order_i:
+			percentage_order[measure]["equal"] =  percentage_order.get(measure, 0).get("equal", 0) + 1
+		else: 
+			percentage_order[measure]["over_estimate"] =  percentage_order.get(measure, 0).get("over_estimate", 0) + 1
 
+	return percentage_order
+
+def calculate_measure_values(readin_data, order_i, percentage_order):
+	# header = ["order", "aic", "bic", "hqic", "edc", "new1", "new2", "new3"]
+	measure_names = ["aic", "bic", "hqic", "edc", "new1", "new2", "new3"]
+	mini_meausre = defaultdict(float)
+	selected_order = defaultdict(float)
 	for i in range(0, 7):
 		m = MarkovModel(readin_data, i)
-		mini_meausre = defaultdict(float)
 		for measure in measure_names:
 			measure_value = round(m.measure_values(measure), 2)
 			if measure not in mini_meausre.keys():
 				mini_meausre[measure] =	measure_value
+				selected_order[measure] = i 
 			else: 
 				if measure_value < mini_meausre[measure]:
 					mini_meausre[measure] = measure_value
-		order_measure[i] = mini_meausre
-	
-	with open(fout_file_path, "wb") as f:
-	    w = csv.DictWriter(f, header)
-	    w.writeheader()
-	    for order in order_measure:
-	        w.writerow({h: order_measure[order].get(h) or order for h in header})
+					selected_order[measure] = i 
+	percentage_order = percentage_order_category(selected_order, order_i, percentage_order)
+	return percentage_order
 
 def smart_home_datasets(root_dir, directory):
 	finput_dir = root_dir + directory + "/"
@@ -77,35 +89,64 @@ def smart_home_datasets(root_dir, directory):
 		fout_file_path = output_dir + "/" + fin_file_name[-1] + ".csv"
 		calculate_measure_values(flatten, fout_file_path)
 
-def syn1_cook(root_dir, input_sequence):
-	for i in range(1, 7):
-		for s in range(15000, 85000, 10000):
+def calculate_percentage(percentage_order):
+	for measure in percentage_order.keys():
+		total_count = 0 
+		for k in percentage_order[measure].keys():
+			total_count += percentage_order[measure][k]
+		for k in percentage_order[measure].keys():
+			percentage_order[measure][k] = round(100*percentage_order[measure][k]/float(total_count), 2)
+	return percentage_order
 
-			fout_file_path = create_output_file_path(root_dir, "syn1_order_" + str(i), s)
-			m = MarkovModel(input_sequence, i)
-			gen_sequence = m.gen(tuple(input_sequence[0:i]), s)
-			calculate_measure_values(gen_sequence[5000:], fout_file_path)
-			print("Calculated measure values for syn1 with order %ssample size %s"%i%s)
+def write_into_csv(percentage_order, fout_file_path):	
+	header = ["measures", "under_estimate", "equal", "over_estimate"]
+	measure_names = ["aic", "bic", "hqic", "edc", "new1", "new2", "new3"]	
+	with open(fout_file_path, "wb") as f:
+	    w = csv.DictWriter(f, header)
+	    w.writeheader()
+	    for measure in measure_names:
+	    	temp_row = {}
+	    	for h in header: 
+	    		if h not in percentage_order[measure].keys():
+	    			temp_row[h] = measure
+	    		else:
+	    			temp_row[h] = percentage_order[measure].get(h)
+	    	w.writerow(temp_row)
 
-
-def syn2_paper(root_dir, states_temp):	
-	for i in range(1, 7):
-		gen_m = GenMarkovTransitionProb(states_temp, i)
-		for s in range(5500, 8500, 1000):
-			gen_sequence = gen_m.gen(tuple(states_temp[0:i]), s)
-			fout_file_path = create_output_file_path(root_dir, "syn2_order_"+str(i), s)
-			calculate_measure_values(gen_sequence[5000:], fout_file_path)
-			print("Calculated measure values for syn2 with order %ssample size %s"%i%s)
+def init_percent_order():
+	percentage_order = {"aic":{"under_estimate": 0, "equal": 0, "over_estimate": 0}, 
+			"bic":{"under_estimate": 0, "equal": 0, "over_estimate": 0}, 
+			"hqic":{"under_estimate": 0, "equal": 0, "over_estimate": 0}, 
+			"edc":{"under_estimate": 0, "equal": 0, "over_estimate": 0}, 
+			"new1":{"under_estimate": 0, "equal": 0, "over_estimate": 0}, 
+			"new2":{"under_estimate": 0, "equal": 0, "over_estimate": 0}, 
+			"new3":{"under_estimate": 0, "equal": 0, "over_estimate": 0	}}
+	return percentage_order
+def syn2_paper(root_dir, states_temp, order_i, start_sample_size, end_sample_size):
+	percentage_order = init_percent_order()
+	for s in range(start_sample_size, end_sample_size, 500):
+		for h  in range(1, 1000):
+			print("generate sampel size %s with iteration %s"%(s-5000, h))
+			gen_m = GenMarkovTransitionProb(states_temp, order_i)
+			gen_sequence = gen_m.gen(tuple(states_temp[0:order_i]), s)
+			percentage_order = calculate_measure_values(gen_sequence[5000:], order_i, percentage_order)
+	
+		fout_file_path = create_output_file_path(root_dir, "syn_data/syn2_order_"+str(order_i) + "/"  , (s-5000))
+		percentage_order = calculate_percentage(percentage_order)
+		write_into_csv(percentage_order, fout_file_path)
 
 
 if __name__ == '__main__':
-
-	measure_names = ["aic", "bic", "hqic", "edc", "new1", "new2", "new3"]
+	
 	syn1 = False
 	syn2 = True
 	syn3 = False
 	sample_size_syn1 = 10000
-	root_dir = "/Users/BeiyuLin/Desktop/five_datasets/"
+	# root_dir = "/Users/BeiyuLin/Desktop/five_datasets/"
+	root_dir = "./"
+	order_i = int(sys.argv[1])
+	start_sample_size = int(sys.argv[2])
+	end_sample_size = int(sys.argv[3])
 
 	# calculate the order of each subgroup from smart home datasets
 	if not syn1 and not syn2 and not syn3:
@@ -116,31 +157,17 @@ if __name__ == '__main__':
 			smart_home_datasets(root_dir, directory)
 		print("finished smart home data")
 
-	elif syn1:
-		print("generate syn1 data")
-		input_sequence = gen_syn1(sample_size_syn1)
-		syn1_cook(root_dir, input_sequence)
-		print("finished syn1")
-
 	elif syn2:
 		print("generate syn2 data")
 		# based on randomly generated transition matrix.
 		# http://www.iaeng.org/publication/WCECS2014/WCECS2014_pp899-901.pdf
 		# each case is the order of the synthetic data
 		states_temp = ['a','b','c','d','e','f','g','h','u']
-		syn2_paper(root_dir, states_temp)
+		# generate 1000 random transition matrix 
+		syn2_paper(root_dir, states_temp, order_i, start_sample_size, end_sample_size)
 		print("finished syn2")
 
 	else:
-		print("generate syn3 data")
+		print("generate syn1 or syn3 data")
 		# based on binomial distributions.
 		# https://arxiv.org/pdf/0910.0264.pdf
-
-
-
-			
-
-
-
-
-
