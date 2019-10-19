@@ -32,18 +32,7 @@ def create_output_file_path(root_dir, dir_name, sample_size):
 	fout_file_path = output_dir + "/syn_" + str(sample_size) + ".csv"
 	return fout_file_path
 
-def gen_syn1(sample_size):
-	## generate 9 states for 9 transition matrix for MC from 0th order - 6th order. 
-	data = numpy.random.random(sample_size)
-	bins = numpy.linspace(0, 1, 10) # digitized 1 - 9
-	digitized = numpy.digitize(data, bins)
-	bin_means = [data[digitized == i].mean() for i in range(1, len(bins))]
-	# print(data)
-	res = [str(x) for x in digitized]
-	return res
-
 def percentage_order_category(selected_order, order_i, percentage_order):
-
 	for measure in selected_order.keys():
 		# print("measure", measure)
 		if selected_order[measure] < order_i:
@@ -52,7 +41,6 @@ def percentage_order_category(selected_order, order_i, percentage_order):
 			percentage_order[measure]["equal"] =  percentage_order.get(measure, 0).get("equal", 0) + 1
 		else: 
 			percentage_order[measure]["over_estimate"] =  percentage_order.get(measure, 0).get("over_estimate", 0) + 1
-
 	return percentage_order
 
 def calculate_measure_values(readin_data, order_i, percentage_order):
@@ -64,15 +52,33 @@ def calculate_measure_values(readin_data, order_i, percentage_order):
 		m = MarkovModel(readin_data, i)
 		for measure in measure_names:
 			measure_value = round(m.measure_values(measure), 2)
-			if measure not in mini_meausre.keys():
+			if measure not in mini_meausre.keys() or measure_value < mini_meausre[measure]:
 				mini_meausre[measure] =	measure_value
 				selected_order[measure] = i 
-			else: 
-				if measure_value < mini_meausre[measure]:
-					mini_meausre[measure] = measure_value
-					selected_order[measure] = i 
 	percentage_order = percentage_order_category(selected_order, order_i, percentage_order)
 	return percentage_order
+
+def calculate_measure_values_sh(readin_data, fout_file_path):
+	header = ["order", "aic", "bic", "hqic", "edc", "new1", "new2", "new3"]
+	order_measure = defaultdict(float)
+
+	for i in range(0, 7):
+		m = MarkovModel(readin_data, i)
+		mini_meausre = defaultdict(float)
+		for measure in measure_names:
+			measure_value = round(m.measure_values(measure), 2)
+			if measure not in mini_meausre.keys():
+				mini_meausre[measure] =	measure_value
+			elif measure_value < mini_meausre[measure]:
+					mini_meausre[measure] = measure_value
+		order_measure[i] = mini_meausre
+	write_into_csv(order_measure, fout_file_path)
+	
+	# with open(fout_file_path, "wb") as f:
+	#     w = csv.DictWriter(f, header)
+	#     w.writeheader()
+	#     for order in order_measure:
+	#         w.writerow({h: order_measure[order].get(h) or order for h in header})
 
 def smart_home_datasets(root_dir, directory):
 	finput_dir = root_dir + directory + "/"
@@ -87,7 +93,7 @@ def smart_home_datasets(root_dir, directory):
 		fin_file_name = re.split(r'\/', file)
 		print(directory, fin_file_name[-1])
 		fout_file_path = output_dir + "/" + fin_file_name[-1] + ".csv"
-		calculate_measure_values(flatten, fout_file_path)
+		calculate_measure_values_sh(flatten, fout_file_path)
 
 def calculate_percentage(percentage_order):
 	for measure in percentage_order.keys():
@@ -122,6 +128,7 @@ def init_percent_order():
 			"new2":{"under_estimate": 0, "equal": 0, "over_estimate": 0}, 
 			"new3":{"under_estimate": 0, "equal": 0, "over_estimate": 0	}}
 	return percentage_order
+
 def syn2_paper(root_dir, states_temp, order_i, start_sample_size, end_sample_size):
 	percentage_order = init_percent_order()
 	for s in range(start_sample_size, end_sample_size, 500):
@@ -130,11 +137,9 @@ def syn2_paper(root_dir, states_temp, order_i, start_sample_size, end_sample_siz
 			gen_m = GenMarkovTransitionProb(states_temp, order_i)
 			gen_sequence = gen_m.gen(tuple(states_temp[0:order_i]), s)
 			percentage_order = calculate_measure_values(gen_sequence[5000:], order_i, percentage_order)
-	
 		fout_file_path = create_output_file_path(root_dir, "syn_data/syn2_order_"+str(order_i) + "/"  , (s-5000))
 		percentage_order = calculate_percentage(percentage_order)
 		write_into_csv(percentage_order, fout_file_path)
-
 
 if __name__ == '__main__':
 	
