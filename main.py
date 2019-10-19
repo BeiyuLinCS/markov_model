@@ -17,9 +17,6 @@ import sys
 from mc_class import MarkovModel
 from gen_mc_transition import GenMarkovTransitionProb
 
-# https://www.datasciencecentral.com/profiles/blogs/some-applications-of-markov-chain-in-python
-# input_sequence = ['abc', 'abc', 'acd', 'ecs', 'adf', 'dafae', 'dafae', 'dafae', 'adf', 'abc', 'dafae', 'dafae', 'dafae', 'adf', 'abc']
-
 def make_dir(path):
 	try:
 		os.stat(path)
