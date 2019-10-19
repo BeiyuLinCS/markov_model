@@ -123,7 +123,7 @@ def init_percent_order():
 			"edc":{"under_estimate": 0, "equal": 0, "over_estimate": 0}, 
 			"new1":{"under_estimate": 0, "equal": 0, "over_estimate": 0}, 
 			"new2":{"under_estimate": 0, "equal": 0, "over_estimate": 0}, 
-			"new3":{"under_estimate": 0, "equal": 0, "over_estimate": 0	}}
+			"new3":{"under_estimate": 0, "equal": 0, "over_estimate": 0}}
 	return percentage_order
 
 def syn2_paper(root_dir, states_temp, order_i, start_sample_size, end_sample_size):
@@ -173,3 +173,4 @@ if __name__ == '__main__':
 		print("generate syn1 or syn3 data")
 		# based on binomial distributions.
 		# https://arxiv.org/pdf/0910.0264.pdf
+
